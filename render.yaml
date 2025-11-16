@@ -3,41 +3,26 @@ services:
     name: peduligizi-app
     env: docker
     dockerfilePath: ./Dockerfile
-    plan: starter  # Free tier (512MiB)
+    plan: starter
     
-    # Build cache untuk cepat
+    # Build cache untuk deploy cepat
     buildFilter:
       paths:
         - app_enterprise.py
         - requirements.txt
         - Dockerfile
         - .env
+        - .env.example
     
     envVars:
       - key: PORT
         value: 8000
       - key: PYTHONUNBUFFERED
         value: "1"
-      
-      # Jika pakai database
       - key: DATABASE_URL
-        fromDatabase:
-          name: peduligizi-db
-          property: connectionString
-      
-      # Jika pakai redis
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: peduligizi-redis
-          property: connectionString
+        value: sqlite:///./peduligizi_render.db  # SQLite untuk starter
 
-# Opsional: Tambahkan database
-databases:
-  - name: peduligizi-db
-    plan: starter
-
-# Opsional: Tambahkan redis
-redis:
-  - name: peduligizi-redis
-    plan: starter
+# Jika mau upgrade ke PostgreSQL nanti, aktifkan ini:
+# databases:
+#   - name: peduligizi-db
+#     plan: starter
