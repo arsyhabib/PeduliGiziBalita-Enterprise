@@ -355,7 +355,7 @@ class Article(Base):
     # Relationships
     author = relationship("User")
     bookmarks = relationship("Bookmark", back_populates="article")
-n    reading_progress = relationship("ReadingProgress", back_populates="article")
+    reading_progress = relationship("ReadingProgress", back_populates="article")
     article_likes = relationship("ArticleLike", back_populates="article")
     comments = relationship("Comment", back_populates="article")
 
@@ -363,7 +363,7 @@ class Bookmark(Base):
     __tablename__ = "bookmarks"
     
     id = Column(Integer, primary_key=True, index=True)
-n    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     article_id = Column(Integer, ForeignKey("articles.id"), nullable=False)
     folder = Column(String, nullable=True)
     notes = Column(Text, nullable=True)
