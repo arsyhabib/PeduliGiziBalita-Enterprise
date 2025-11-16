@@ -2075,3 +2075,20 @@ print("   • Scalability: Horizontal scaling ready")
 print("=" * 80)
 print("🌟 READY FOR ENTERPRISE DEPLOYMENT!")
 print("=" * 80)
+
+from fastapi.responses import RedirectResponse
+
+@app.get("/", include_in_schema=False)
+async def root():
+    """Redirect root ke Swagger UI/docs"""
+    return RedirectResponse(url="/docs")
+
+@app.get("/ping")
+async def ping():
+    """Health check sederhana"""
+    return {
+        "status": "ok",
+        "message": "PeduliGiziBalita Enterprise API is running",
+        "version": settings.APP_VERSION,
+        "timestamp": datetime.now().isoformat()
+    }
