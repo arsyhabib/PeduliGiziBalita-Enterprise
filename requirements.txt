@@ -10,6 +10,7 @@ alembic==1.12.1
 
 # Authentication & Security
 python-jose[cryptography]==3.3.0
+PyJWT==2.8.0  # FIX: Ini yang menyediakan module 'jwt'
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.6
 
@@ -34,9 +35,9 @@ Pillow==10.1.0
 qrcode==7.4.2
 reportlab==4.0.7
 
-# WHO Growth Calculator - VERSI FIX
+# WHO Growth Calculator
 pygrowup==0.8.2
-six==1.16.0  # Dibutuhkan oleh pygrowup
+six==1.16.0
 
 # Template Engine
 jinja2==3.1.2
