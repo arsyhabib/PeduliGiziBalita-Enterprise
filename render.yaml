@@ -12,7 +12,6 @@ services:
         - requirements.txt
         - Dockerfile
         - .env
-        - .env.example
     
     envVars:
       - key: PORT
@@ -20,9 +19,21 @@ services:
       - key: PYTHONUNBUFFERED
         value: "1"
       - key: DATABASE_URL
-        value: sqlite:///./peduligizi_render.db  # SQLite untuk starter
+        fromDatabase:
+          name: peduligizi-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: peduligizi-redis
+          property: connectionString
 
-# Jika mau upgrade ke PostgreSQL nanti, aktifkan ini:
-# databases:
-#   - name: peduligizi-db
-#     plan: starter
+# Tambahkan PostgreSQL (gratis di Render)
+databases:
+  - name: peduligizi-db
+    plan: starter
+
+# Tambahkan Redis (opsional)
+redis:
+  - name: peduligizi-redis
+    plan: starter
