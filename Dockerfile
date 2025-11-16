@@ -26,6 +26,6 @@ USER app
 
 EXPOSE 8000
 
-# **1 worker untuk hemat memory**
+# **1 worker untuk hemat memory 512MiB**
 CMD ["uvicorn", "app_enterprise:app", "--host", "0.0.0.0", "--port", "8000", \
      "--workers", "1", "--loop", "uvloop", "--http", "httptools"]
