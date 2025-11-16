@@ -686,7 +686,6 @@ def create_refresh_token(data: dict):
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
 ):
     credentials_exception = HTTPException(
         status_code=401,
