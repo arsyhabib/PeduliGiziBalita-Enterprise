@@ -72,6 +72,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.openapi.utils import get_openapi
 
 # Database
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, Text, Float, ForeignKey, Index
@@ -179,7 +181,7 @@ class Settings:
 settings = Settings()
 
 # Create necessary directories
-for directory in [settings.UPLOAD_DIR, "logs", "cache", "exports"]:
+for directory in [settings.UPLOAD_DIR, "logs", "cache", "exports", "static", "templates"]:
     Path(directory).mkdir(exist_ok=True)
 
 # ===============================================================================
@@ -1109,15 +1111,89 @@ class AnalyticsService:
 # SECTION 9: ENTERPRISE FASTAPI APP - MAIN APPLICATION
 # ===============================================================================
 
-# Create FastAPI app with enterprise configuration
+# Custom OpenAPI schema
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    
+    openapi_schema = get_openapi(
+        title="PeduliGiziBalita Enterprise API",
+        version=settings.APP_VERSION,
+        description="🚀 Platform Pertumbuhan & Gizi Anak Terintegrasi WHO Standards",
+        routes=app.routes,
+    )
+    
+    # Custom logo & favicon
+    openapi_schema["info"]["x-logo"] = {
+        "url": "/static/logo.png",
+        "backgroundColor": "#4CAF50",
+        "altText": "PeduliGiziBalita Enterprise"
+    }
+    
+    # JWT Security Scheme
+    openapi_schema["components"]["securitySchemes"] = {
+        "BearerAuth": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT"
+        }
+    }
+    
+    # Apply security globally
+    for path in openapi_schema["paths"]:
+        for method in openapi_schema["paths"][path]:
+            # Exclude auth endpoints from global security
+            if not path.startswith("/auth"):
+                openapi_schema["paths"][path][method]["security"] = [{"BearerAuth": []}]
+    
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+# Create FastAPI app
 app = FastAPI(
     title=f"{settings.APP_NAME} v{settings.APP_VERSION}",
     version=settings.APP_VERSION,
-    description="Enterprise-grade child growth monitoring platform with advanced features",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    description="Enterprise-grade child growth monitoring platform with WHO standards integration",
+    docs_url=None,  # Disable default docs
+    redoc_url=None,  # Disable default redoc
     openapi_url="/openapi.json"
 )
+
+# Custom Swagger UI
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui_html():
+    return get_swagger_ui_html(
+        openapi_url="/openapi.json",
+        title=f"{settings.APP_NAME} - API Documentation",
+        swagger_favicon_url="/static/favicon.ico",
+        swagger_css_url="https://cdn.jsdelivr.net/npm/swagger-ui-themes@3.0.0/themes/3.x/theme-flattop.min.css"
+    )
+
+# Custom Redoc
+@app.get("/redoc", include_in_schema=False)
+async def redoc_html():
+    return HTMLResponse("""
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <title>PeduliGiziBalita Enterprise - API Docs</title>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,700|Roboto:300,400,700" rel="stylesheet">
+    </head>
+    <body>
+    <redoc spec-url='/openapi.json' 
+           hide-hostname='true' 
+           hide-download-button='true'
+           font-size='large'
+           expand-responses='200,201'></redoc>
+    <script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>
+    </body>
+    </html>
+    """)
+
+# Set custom OpenAPI
+app.openapi = custom_openapi
 
 # Enterprise middleware
 app.add_middleware(
@@ -1137,7 +1213,7 @@ templates = Jinja2Templates(directory="templates")
 # ===============================================================================
 
 # Health and Monitoring
-@app.get("/health")
+@app.get("/health", tags=["📡 System"])
 async def health_check(db: Session = Depends(get_db), redis: redis.Redis = Depends(get_redis)):
     """Comprehensive health check for all services"""
     try:
@@ -1180,7 +1256,7 @@ async def health_check(db: Session = Depends(get_db), redis: redis.Redis = Depen
     }
 
 # Authentication Endpoints
-@app.post("/auth/register", response_model=UserResponse)
+@app.post("/auth/register", response_model=UserResponse, tags=["🔐 Authentication"])
 async def register(user: UserCreate, db: Session = Depends(get_db)):
     """Register a new user"""
     # Check if user exists
@@ -1216,7 +1292,7 @@ async def register(user: UserCreate, db: Session = Depends(get_db)):
     
     return db_user
 
-@app.post("/auth/login", response_model=Token)
+@app.post("/auth/login", response_model=Token, tags=["🔐 Authentication"])
 async def login(request: Request, username: str, password: str, db: Session = Depends(get_db)):
     """Login user and return JWT tokens"""
     user = db.query(User).filter(User.username == username).first()
@@ -1248,7 +1324,7 @@ async def login(request: Request, username: str, password: str, db: Session = De
         "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
     }
 
-@app.post("/auth/refresh", response_model=Token)
+@app.post("/auth/refresh", response_model=Token, tags=["🔐 Authentication"])
 async def refresh_token(refresh_token: str, db: Session = Depends(get_db)):
     """Refresh access token using refresh token"""
     try:
@@ -1281,12 +1357,12 @@ async def refresh_token(refresh_token: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
 # User Management Endpoints
-@app.get("/users/me", response_model=UserResponse)
+@app.get("/users/me", response_model=UserResponse, tags=["👤 User Management"])
 async def read_users_me(current_user: User = Depends(get_current_active_user)):
     """Get current user information"""
     return current_user
 
-@app.put("/users/me", response_model=UserResponse)
+@app.put("/users/me", response_model=UserResponse, tags=["👤 User Management"])
 async def update_user_me(
     user_update: UserUpdate,
     current_user: User = Depends(get_current_active_user),
@@ -1302,7 +1378,7 @@ async def update_user_me(
     db.refresh(current_user)
     return current_user
 
-@app.get("/users", response_model=List[UserResponse])
+@app.get("/users", response_model=List[UserResponse], tags=["👤 User Management"])
 async def list_users(
     skip: int = 0,
     limit: int = 100,
@@ -1314,7 +1390,7 @@ async def list_users(
     return users
 
 # Child Management Endpoints
-@app.post("/children", response_model=ChildResponse)
+@app.post("/children", response_model=ChildResponse, tags=["👶 Child Management"])
 async def create_child(
     child: ChildCreate,
     current_user: User = Depends(get_current_active_user),
@@ -1330,7 +1406,7 @@ async def create_child(
     db.refresh(db_child)
     return db_child
 
-@app.get("/children", response_model=List[ChildResponse])
+@app.get("/children", response_model=List[ChildResponse], tags=["👶 Child Management"])
 async def list_children(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
@@ -1339,7 +1415,7 @@ async def list_children(
     children = db.query(Child).filter(Child.parent_id == current_user.id).all()
     return children
 
-@app.get("/children/{child_id}", response_model=ChildResponse)
+@app.get("/children/{child_id}", response_model=ChildResponse, tags=["👶 Child Management"])
 async def get_child(
     child_id: int,
     current_user: User = Depends(get_current_active_user),
@@ -1355,7 +1431,7 @@ async def get_child(
     
     return child
 
-@app.put("/children/{child_id}", response_model=ChildResponse)
+@app.put("/children/{child_id}", response_model=ChildResponse, tags=["👶 Child Management"])
 async def update_child(
     child_id: int,
     child_update: ChildUpdate,
@@ -1378,7 +1454,7 @@ async def update_child(
     return child
 
 # Measurement Endpoints
-@app.post("/measurements", response_model=MeasurementResponse)
+@app.post("/measurements", response_model=MeasurementResponse, tags=["📏 Measurements"])
 async def create_measurement(
     measurement: MeasurementCreate,
     current_user: User = Depends(get_current_active_user),
@@ -1423,7 +1499,7 @@ async def create_measurement(
     
     return db_measurement
 
-@app.get("/children/{child_id}/measurements", response_model=List[MeasurementResponse])
+@app.get("/children/{child_id}/measurements", response_model=List[MeasurementResponse], tags=["📏 Measurements"])
 async def list_measurements(
     child_id: int,
     current_user: User = Depends(get_current_active_user),
@@ -1444,7 +1520,7 @@ async def list_measurements(
     return measurements
 
 # Article Management Endpoints
-@app.get("/articles", response_model=List[ArticleResponse])
+@app.get("/articles", response_model=List[ArticleResponse], tags=["📚 Content Management"])
 async def list_articles(
     params: ArticleSearchParams = Depends(),
     current_user: User = Depends(get_current_active_user),
@@ -1502,7 +1578,7 @@ async def list_articles(
     
     return articles
 
-@app.get("/articles/{article_id}", response_model=ArticleResponse)
+@app.get("/articles/{article_id}", response_model=ArticleResponse, tags=["📚 Content Management"])
 async def get_article(
     article_id: int,
     current_user: User = Depends(get_current_active_user),
@@ -1519,7 +1595,7 @@ async def get_article(
     
     return article
 
-@app.post("/articles", response_model=ArticleResponse)
+@app.post("/articles", response_model=ArticleResponse, tags=["📚 Content Management"])
 async def create_article(
     article: ArticleCreate,
     current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR])),
@@ -1550,7 +1626,7 @@ async def create_article(
     return db_article
 
 # Library Features Endpoints
-@app.post("/articles/{article_id}/bookmark")
+@app.post("/articles/{article_id}/bookmark", tags=["📖 Library"])
 async def bookmark_article(
     article_id: int,
     bookmark: BookmarkCreate,
@@ -1586,7 +1662,7 @@ async def bookmark_article(
         db.commit()
         return {"message": "Article bookmarked", "bookmarked": True}
 
-@app.get("/users/me/bookmarks", response_model=List[ArticleResponse])
+@app.get("/users/me/bookmarks", response_model=List[ArticleResponse], tags=["📖 Library"])
 async def get_user_bookmarks(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
@@ -1602,7 +1678,7 @@ async def get_user_bookmarks(
     
     return articles
 
-@app.post("/articles/{article_id}/progress")
+@app.post("/articles/{article_id}/progress", tags=["📖 Library"])
 async def update_reading_progress(
     article_id: int,
     progress: ReadingProgressUpdate,
@@ -1644,7 +1720,7 @@ async def update_reading_progress(
         "is_completed": reading_progress.is_completed
     }
 
-@app.get("/users/me/recommendations", response_model=List[ArticleResponse])
+@app.get("/users/me/recommendations", response_model=List[ArticleResponse], tags=["📖 Library"])
 async def get_recommendations(
     limit: int = 6,
     current_user: User = Depends(get_current_active_user),
@@ -1656,7 +1732,7 @@ async def get_recommendations(
     return articles
 
 # Analytics Endpoints
-@app.get("/analytics/user")
+@app.get("/analytics/user", tags=["📊 Analytics"])
 async def get_user_analytics(
     days: int = 30,
     current_user: User = Depends(get_current_active_user),
@@ -1667,7 +1743,7 @@ async def get_user_analytics(
     analytics = analytics_service.get_user_analytics(current_user.id, days)
     return analytics
 
-@app.get("/analytics/system")
+@app.get("/analytics/system", tags=["📊 Analytics"])
 async def get_system_analytics(
     days: int = 30,
     current_user: User = Depends(require_role([UserRole.ADMIN])),
@@ -1679,7 +1755,7 @@ async def get_system_analytics(
     return analytics
 
 # Growth Prediction Endpoints
-@app.post("/children/{child_id}/predict")
+@app.post("/children/{child_id}/predict", tags=["📈 Growth Prediction"])
 async def predict_growth(
     child_id: int,
     months_ahead: int = 6,
@@ -1700,7 +1776,7 @@ async def predict_growth(
     return prediction
 
 # Notification Endpoints
-@app.get("/notifications")
+@app.get("/notifications", tags=["📬 Notifications"])
 async def get_notifications(
     unread_only: bool = False,
     limit: int = 50,
@@ -1712,7 +1788,7 @@ async def get_notifications(
     notifications = notification_service.get_user_notifications(current_user.id, unread_only, limit)
     return notifications
 
-@app.put("/notifications/{notification_id}/read")
+@app.put("/notifications/{notification_id}/read", tags=["📬 Notifications"])
 async def mark_notification_read(
     notification_id: int,
     current_user: User = Depends(get_current_active_user),
@@ -1797,7 +1873,7 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-@app.websocket("/ws/notifications/{user_id}")
+@app.websocket("/ws/notifications/{user_id}", tags=["📡 Real-time"])
 async def websocket_notifications(websocket: WebSocket, user_id: int, token: str):
     """WebSocket endpoint for real-time notifications"""
     # Verify token
@@ -1823,7 +1899,7 @@ async def websocket_notifications(websocket: WebSocket, user_id: int, token: str
     except WebSocketDisconnect:
         manager.disconnect(websocket, f"user_{user_id}", user_id)
 
-@app.websocket("/ws/analytics")
+@app.websocket("/ws/analytics", tags=["📡 Real-time"])
 async def websocket_analytics(websocket: WebSocket, token: str):
     """WebSocket endpoint for real-time analytics updates"""
     # Verify token and check admin role
@@ -1861,7 +1937,7 @@ async def websocket_analytics(websocket: WebSocket, token: str):
 # SECTION 13: ENTERPRISE ADMIN PANEL - ADMIN ENDPOINTS
 # ===============================================================================
 
-@app.get("/admin/dashboard")
+@app.get("/admin/dashboard", tags=["🛠️ Admin Panel"])
 async def admin_dashboard(
     current_user: User = Depends(require_role([UserRole.ADMIN])),
     db: Session = Depends(get_db)
@@ -1886,7 +1962,7 @@ async def admin_dashboard(
         }
     }
 
-@app.get("/admin/users")
+@app.get("/admin/users", tags=["🛠️ Admin Panel"])
 async def admin_list_users(
     skip: int = 0,
     limit: int = 100,
@@ -1919,176 +1995,9 @@ async def admin_list_users(
         "limit": limit
     }
 
-@app.put("/admin/users/{user_id}/role")
+@app.put("/admin/users/{user_id}/role", tags=["🛠️ Admin Panel"])
 async def admin_update_user_role(
     user_id: int,
     new_role: UserRole,
     current_user: User = Depends(require_role([UserRole.ADMIN])),
-    db: Session = Depends(get_db)
-):
-    """Update user role (Admin only)"""
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    user.role = new_role
-    db.commit()
-    
-    return {"message": f"User role updated to {new_role}", "user": user}
-
-@app.delete("/admin/users/{user_id}")
-async def admin_delete_user(
-    user_id: int,
-    current_user: User = Depends(require_role([UserRole.ADMIN])),
-    db: Session = Depends(get_db)
-):
-    """Delete user (Admin only)"""
-    if user_id == current_user.id:
-        raise HTTPException(status_code=400, detail="Cannot delete your own account")
-    
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    db.delete(user)
-    db.commit()
-    
-    return {"message": "User deleted successfully"}
-
-# ===============================================================================
-# SECTION 14: ENTERPRISE UTILITIES - HELPER FUNCTIONS
-# ===============================================================================
-
-def calculate_age(birth_date: date, measurement_date: date) -> float:
-    """Calculate age in months"""
-    delta = measurement_date - birth_date
-    return delta.days / 30.4375
-
-def sanitize_filename(filename: str) -> str:
-    """Sanitize filename for safe file operations"""
-    invalid_chars = '<>:"/\|?*'
-    for char in invalid_chars:
-        filename = filename.replace(char, '_')
-    return filename.strip()
-
-def generate_unique_id() -> str:
-    """Generate unique identifier"""
-    return str(uuid.uuid4())
-
-def format_date(date_obj: Union[date, datetime]) -> str:
-    """Format date consistently"""
-    if isinstance(date_obj, datetime):
-        date_obj = date_obj.date()
-    return date_obj.strftime("%d/%m/%Y")
-
-def validate_age_range(age_range: str) -> tuple:
-    """Validate and parse age range string"""
-    try:
-        if "-" in age_range:
-            parts = age_range.split("-")
-            if len(parts) == 2:
-                min_age = int(parts[0].strip().split()[0])
-                max_age = int(parts[1].strip().split()[0])
-                return min_age, max_age
-    except:
-        pass
-    return None, None
-
-def is_age_in_range(age_months: int, age_range: str) -> bool:
-    """Check if age is within the specified range"""
-    if not age_range or age_range == "Semua Usia":
-        return True
-    
-    min_age, max_age = validate_age_range(age_range)
-    if min_age is not None and max_age is not None:
-        return min_age <= age_months <= max_age
-    
-    return False
-
-def create_qr_code(data: str, size: int = 10) -> str:
-    """Create QR code and return file path"""
-    qr = qrcode.QRCode(version=1, box_size=size, border=5)
-    qr.add_data(data)
-    qr.make(fit=True)
-    
-    img = qr.make_image(fill_color="black", back_color="white")
-    filename = f"qr_{generate_unique_id()}.png"
-    filepath = os.path.join(settings.UPLOAD_DIR, filename)
-    img.save(filepath)
-    
-    return filepath
-
-# ===============================================================================
-# SECTION 15: FINAL ENTERPRISE SUMMARY
-# ===============================================================================
-
-print("=" * 80)
-print("🚀 PEDULIGIZIBALITA ENTERPRISE v5.0 - DEPLOYMENT READY")
-print("=" * 80)
-print("✅ ENTERPRISE FEATURES IMPLEMENTED:")
-print("   🏗️  Microservices Architecture - Scalable and maintainable")
-print("   🗄️  Advanced Database Layer - SQLAlchemy with migrations")
-print("   📡 Real-time Features - WebSocket support for live updates")
-print("   📊 Advanced WHO Calculator - Growth predictions and analytics")
-print("   🔒 Enterprise Authentication - JWT with role-based access")
-print("   📦 Caching Layer - Redis for performance optimization")
-print("   📣 Notification System - Multi-channel notifications")
-print("   📊 Analytics Dashboard - Comprehensive data insights")
-print("   🛠️ Admin Panel - Full user and content management")
-print("   🌐 API Gateway - Centralized API management")
-print("   🔄 Background Tasks - Celery for async operations")
-print("   📂 File Management - S3-compatible storage")
-print("   📈 Monitoring & Logging - Enterprise-grade observability")
-print("   📦 Testing Suite - Comprehensive test coverage")
-print("   🐳 Deployment Pipeline - Docker + CI/CD ready")
-print("=" * 80)
-print("📁 ENTERPRISE FILES CREATED:")
-print("   • main.py (2000+ lines) - Complete application")
-print("   • Dockerfile - Production-ready container")
-print("   • requirements.txt - Dependencies")
-print("   • render.yaml - Render configuration")
-print("   • .env.example - Environment variables example")
-print("=" * 80)
-print("🎯 PRODUCTION DEPLOYMENT:")
-print("   docker-compose up -d  # Start all services")
-print("   docker-compose logs -f app  # Monitor application")
-print("   curl http://localhost/health  # Health check")
-print("   docker-compose exec db psql -U peduligizi_user -d peduligizi_enterprise  # Database access")
-print("=" * 80)
-print("🔧 TECHNICAL SPECIFICATIONS:")
-print("   • Architecture: Microservices pattern")
-print("   • Database: PostgreSQL + Redis + SQLAlchemy")
-print("   • Authentication: JWT with refresh tokens")
-print("   • Background Tasks: Celery + RabbitMQ")
-print("   • Real-time: WebSocket + AsyncIO")
-print("   • Monitoring: Prometheus + Grafana")
-print("   • Security: OWASP compliant")
-print("   • Performance: Optimized for high load")
-print("=" * 80)
-print("📊 ENTERPRISE CAPABILITIES:")
-print("   • User Management: 10,000+ concurrent users")
-print("   • Data Storage: Millions of measurements")
-print("   • Performance: <100ms API response time")
-print("   • Availability: 99.9% uptime design")
-print("   • Security: Enterprise-grade protection")
-print("   • Scalability: Horizontal scaling ready")
-print("=" * 80)
-print("🌟 READY FOR ENTERPRISE DEPLOYMENT!")
-print("=" * 80)
-
-from fastapi.responses import RedirectResponse
-
-@app.get("/", include_in_schema=False)
-async def root():
-    """Redirect root ke Swagger UI/docs"""
-    return RedirectResponse(url="/docs")
-
-@app.get("/ping")
-async def ping():
-    """Health check sederhana"""
-    return {
-        "status": "ok",
-        "message": "PeduliGiziBalita Enterprise API is running",
-        "version": settings.APP_VERSION,
-        "timestamp": datetime.now().isoformat()
-    }
+    db: Session = Depends
