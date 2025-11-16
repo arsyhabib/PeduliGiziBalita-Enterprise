@@ -5,29 +5,6 @@ services:
     dockerfilePath: ./Dockerfile
     envVars:
       - key: PORT
-        value: "8000"
+        value: 8000
       - key: PYTHON_VERSION
-        value: "3.10.0"
-      - key: DEBUG
-        value: "False"
-      - key: SECRET_KEY
-        value: "your-super-secret-enterprise-key-here"
-      - key: JWT_SECRET_KEY
-        value: "jwt-super-secret-key"
-      - key: DATABASE_URL
-        value: "sqlite:///./app.db"  # Ganti dengan PostgreSQL URL jika digunakan
-      - key: REDIS_URL
-        value: "redis://localhost:6379"
-    ports:
-      - port: 8000
-    healthCheck:
-      path: /health
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    resources:
-      cpu: "512m"
-      memory: "1Gi"
-    disk: "1Gi"
-    autoDeploy: true
-    environment: production
+        value: 3.10.0
