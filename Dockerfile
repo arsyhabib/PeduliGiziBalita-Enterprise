@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.10-slim
 
 # Set working directory
 WORKDIR /app
@@ -54,9 +54,3 @@ EXPOSE 8000
 
 # Run application
 CMD ["uvicorn", "app_enterprise:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
-
-# Alternative commands for different deployment scenarios
-# Development: uvicorn app_enterprise:app --host 0.0.0.0 --port 8000 --reload
-# Production with Gunicorn: gunicorn app_enterprise:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
-# Celery Worker: celery -A app_enterprise.celery_app worker --loglevel=info --concurrency=4
-# Celery Beat: celery -A app_enterprise.celery_app beat --loglevel=info
