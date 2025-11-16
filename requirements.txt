@@ -34,8 +34,8 @@ Pillow==10.1.0
 qrcode==7.4.2
 reportlab==4.0.7
 
-# WHO Growth Calculator
-pygrowup==0.8.5
+# WHO Growth Calculator - VERSI YANG BENAR
+pygrowup==0.8.2
 
 # Template Engine
 jinja2==3.1.2
