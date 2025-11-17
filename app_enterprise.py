@@ -1873,7 +1873,7 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-@app.websocket("/ws/notifications/{user_id}", tags=["📡 Real-time"])
+@app.websocket("/ws/notifications/{user_id}")
 async def websocket_notifications(websocket: WebSocket, user_id: int, token: str):
     """WebSocket endpoint for real-time notifications"""
     # Verify token
@@ -1899,7 +1899,7 @@ async def websocket_notifications(websocket: WebSocket, user_id: int, token: str
     except WebSocketDisconnect:
         manager.disconnect(websocket, f"user_{user_id}", user_id)
 
-@app.websocket("/ws/analytics", tags=["📡 Real-time"])
+@app.websocket("/ws/analytics")
 async def websocket_analytics(websocket: WebSocket, token: str):
     """WebSocket endpoint for real-time analytics updates"""
     # Verify token and check admin role
@@ -2098,59 +2098,7 @@ def create_qr_code(data: str, size: int = 10) -> str:
 # SECTION 15: FINAL ENTERPRISE SUMMARY
 # ===============================================================================
 
-print("=" * 80)
-print("🚀 PEDULIGIZIBALITA ENTERPRISE v5.0 - DEPLOYMENT READY")
-print("=" * 80)
-print("✅ ENTERPRISE FEATURES IMPLEMENTED:")
-print("   🏗️  Microservices Architecture - Scalable and maintainable")
-print("   🗄️  Advanced Database Layer - SQLAlchemy with migrations")
-print("   📡 Real-time Features - WebSocket support for live updates")
-print("   📊 Advanced WHO Calculator - Growth predictions and analytics")
-print("   🔒 Enterprise Authentication - JWT with role-based access")
-print("   📦 Caching Layer - Redis for performance optimization")
-print("   📣 Notification System - Multi-channel notifications")
-print("   📊 Analytics Dashboard - Comprehensive data insights")
-print("   🛠️ Admin Panel - Full user and content management")
-print("   🌐 API Gateway - Centralized API management")
-print("   🔄 Background Tasks - Celery for async operations")
-print("   📂 File Management - S3-compatible storage")
-print("   📈 Monitoring & Logging - Enterprise-grade observability")
-print("   📦 Testing Suite - Comprehensive test coverage")
-print("   🐳 Deployment Pipeline - Docker + CI/CD ready")
-print("=" * 80)
-print("📁 ENTERPRISE FILES CREATED:")
-print("   • main.py (2000+ lines) - Complete application")
-print("   • Dockerfile - Production-ready container")
-print("   • requirements.txt - Dependencies")
-print("   • render.yaml - Render configuration")
-print("   • .env.example - Environment variables example")
-print("=" * 80)
-print("🎯 PRODUCTION DEPLOYMENT:")
-print("   docker-compose up -d  # Start all services")
-print("   docker-compose logs -f app  # Monitor application")
-print("   curl http://localhost/health  # Health check")
-print("   docker-compose exec db psql -U peduligizi_user -d peduligizi_enterprise  # Database access")
-print("=" * 80)
-print("🔧 TECHNICAL SPECIFICATIONS:")
-print("   • Architecture: Microservices pattern")
-print("   • Database: PostgreSQL + Redis + SQLAlchemy")
-print("   • Authentication: JWT with refresh tokens")
-print("   • Background Tasks: Celery + RabbitMQ")
-print("   • Real-time: WebSocket + AsyncIO")
-print("   • Monitoring: Prometheus + Grafana")
-print("   • Security: OWASP compliant")
-print("   • Performance: Optimized for high load")
-print("=" * 80)
-print("📊 ENTERPRISE CAPABILITIES:")
-print("   • User Management: 10,000+ concurrent users")
-print("   • Data Storage: Millions of measurements")
-print("   • Performance: <100ms API response time")
-print("   • Availability: 99.9% uptime design")
-print("   • Security: Enterprise-grade protection")
-print("   • Scalability: Horizontal scaling ready")
-print("=" * 80)
-print("🌟 READY FOR ENTERPRISE DEPLOYMENT!")
-print("=" * 80)
+
 
 from fastapi.responses import RedirectResponse
 
